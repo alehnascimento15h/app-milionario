@@ -68,66 +68,55 @@ export default function AuthPage() {
 
       <div className="container mx-auto px-4 py-12">
         <div className="max-w-md mx-auto">
-          {/* Card de Autenticação */}
-          <div className="bg-white rounded-2xl shadow-2xl p-8 border border-gray-100">
-            <div className="text-center mb-8">
-              <h2 className="text-3xl font-bold text-gray-900 mb-2">
-                Bem-vindo!
-              </h2>
-              <p className="text-gray-600">
-                Entre ou crie sua conta para começar a ganhar
+          {refCode && (
+            <div className="mb-6 p-4 bg-emerald-50 rounded-lg border border-emerald-200">
+              <p className="text-sm text-emerald-700 text-center">
+                🎉 Você foi indicado! Código: <strong>{refCode}</strong>
               </p>
-              {refCode && (
-                <div className="mt-4 p-3 bg-emerald-50 rounded-lg border border-emerald-200">
-                  <p className="text-sm text-emerald-700">
-                    🎉 Você foi indicado! Código: <strong>{refCode}</strong>
-                  </p>
-                </div>
-              )}
             </div>
+          )}
 
-            <Auth
-              supabaseClient={supabase}
-              appearance={{
-                theme: ThemeSupa,
-                variables: {
-                  default: {
-                    colors: {
-                      brand: '#059669',
-                      brandAccent: '#047857',
-                    },
+          <Auth
+            supabaseClient={supabase}
+            appearance={{
+              theme: ThemeSupa,
+              variables: {
+                default: {
+                  colors: {
+                    brand: '#059669',
+                    brandAccent: '#047857',
                   },
                 },
-                className: {
-                  container: 'auth-container',
-                  button: 'auth-button',
-                  input: 'auth-input',
+              },
+              className: {
+                container: 'auth-container',
+                button: 'auth-button',
+                input: 'auth-input',
+              },
+            }}
+            localization={{
+              variables: {
+                sign_in: {
+                  email_label: 'Email',
+                  password_label: 'Senha',
+                  button_label: 'Entrar',
+                  loading_button_label: 'Entrando...',
+                  social_provider_text: 'Entrar com {{provider}}',
+                  link_text: 'Já tem uma conta? Entre',
                 },
-              }}
-              localization={{
-                variables: {
-                  sign_in: {
-                    email_label: 'Email',
-                    password_label: 'Senha',
-                    button_label: 'Entrar',
-                    loading_button_label: 'Entrando...',
-                    social_provider_text: 'Entrar com {{provider}}',
-                    link_text: 'Já tem uma conta? Entre',
-                  },
-                  sign_up: {
-                    email_label: 'Email',
-                    password_label: 'Senha',
-                    button_label: 'Criar conta',
-                    loading_button_label: 'Criando conta...',
-                    social_provider_text: 'Cadastrar com {{provider}}',
-                    link_text: 'Não tem uma conta? Cadastre-se',
-                  },
+                sign_up: {
+                  email_label: 'Email',
+                  password_label: 'Senha',
+                  button_label: 'Criar conta',
+                  loading_button_label: 'Criando conta...',
+                  social_provider_text: 'Cadastrar com {{provider}}',
+                  link_text: 'Não tem uma conta? Cadastre-se',
                 },
-              }}
-              providers={[]}
-              redirectTo={`${window.location.origin}/cadastro${refCode ? `?ref=${refCode}` : ''}`}
-            />
-          </div>
+              },
+            }}
+            providers={[]}
+            redirectTo={`${window.location.origin}/cadastro${refCode ? `?ref=${refCode}` : ''}`}
+          />
 
           {/* Benefícios */}
           <div className="mt-8 text-center">
