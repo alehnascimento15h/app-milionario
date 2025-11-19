@@ -15,12 +15,20 @@ export default function Home() {
               Milionário Rapidoooo
             </h1>
           </div>
-          <Link 
-            href="/dashboard"
-            className="px-4 py-2 text-sm font-medium text-emerald-600 hover:text-emerald-700 transition-colors"
-          >
-            Acessar Dashboard
-          </Link>
+          <div className="flex gap-3">
+            <Link 
+              href="/auth"
+              className="px-4 py-2 text-sm font-medium text-emerald-600 hover:text-emerald-700 transition-colors"
+            >
+              Entrar
+            </Link>
+            <Link 
+              href="/dashboard"
+              className="px-4 py-2 text-sm font-medium bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
+            >
+              Dashboard
+            </Link>
+          </div>
         </div>
       </header>
 
@@ -42,7 +50,7 @@ export default function Home() {
           </p>
 
           <Link 
-            href="/cadastro"
+            href="/auth"
             className="inline-flex items-center gap-2 px-8 py-4 bg-gradient-to-r from-emerald-600 to-green-600 text-white rounded-xl font-semibold text-lg hover:shadow-2xl hover:scale-105 transition-all duration-300"
           >
             Começar Agora
@@ -74,7 +82,7 @@ export default function Home() {
             </div>
             <h4 className="text-xl font-bold mb-3 text-gray-900">2. Indique Amigos</h4>
             <p className="text-gray-600">
-              Compartilhe seu código de indicação e ganhe R$ 100 por amigo
+              Compartilhe seu link de indicação e ganhe R$ 100 por amigo
             </p>
           </div>
 
@@ -137,7 +145,7 @@ export default function Home() {
           Junte-se a milhares de pessoas que já estão ganhando dinheiro
         </p>
         <Link 
-          href="/cadastro"
+          href="/auth"
           className="inline-flex items-center gap-2 px-8 py-4 bg-gradient-to-r from-emerald-600 to-green-600 text-white rounded-xl font-semibold text-lg hover:shadow-2xl hover:scale-105 transition-all duration-300"
         >
           Cadastrar Agora

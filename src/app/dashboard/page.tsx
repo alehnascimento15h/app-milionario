@@ -1,12 +1,14 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { DollarSign, Users, TrendingUp, Copy, Check, ArrowRight, Wallet, Clock, Link as LinkIcon } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { supabase, type User as DBUser, type Comissao as DBComissao } from '@/lib/supabase';
+import { DollarSign, Users, TrendingUp, Copy, Check, ArrowRight, Wallet, Clock, Link as LinkIcon, LogOut } from 'lucide-react';
 import Link from 'next/link';
-import type { User, Comissao } from '@/lib/types';
 
 export default function Dashboard() {
-  const [user, setUser] = useState<User | null>(null);
+  const router = useRouter();
+  const [user, setUser] = useState<DBUser | null>(null);
   const [copied, setCopied] = useState(false);
   const [saldoDisponivel, setSaldoDisponivel] = useState(0);
   const [totalIndicacoes, setTotalIndicacoes] = useState(0);
@@ -15,55 +17,78 @@ export default function Dashboard() {
   const [metodoPagamento, setMetodoPagamento] = useState('');
   const [dadosPagamento, setDadosPagamento] = useState('');
   const [linkIndicacao, setLinkIndicacao] = useState('');
-
-  // Dados simulados de comissões
-  const [comissoes] = useState<Comissao[]>([
-    {
-      id: '1',
-      usuarioId: '1',
-      indicadoNome: 'João Silva',
-      indicadoEmail: 'joao@email.com',
-      valor: 100,
-      data: new Date('2024-01-15'),
-      status: 'pago'
-    },
-    {
-      id: '2',
-      usuarioId: '1',
-      indicadoNome: 'Maria Santos',
-      indicadoEmail: 'maria@email.com',
-      valor: 100,
-      data: new Date('2024-01-20'),
-      status: 'pago'
-    },
-    {
-      id: '3',
-      usuarioId: '1',
-      indicadoNome: 'Pedro Costa',
-      indicadoEmail: 'pedro@email.com',
-      valor: 100,
-      data: new Date('2024-01-25'),
-      status: 'pendente'
-    }
-  ]);
+  const [comissoes, setComissoes] = useState<DBComissao[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Carregar dados do usuário
-    const userData = localStorage.getItem('userData');
-    if (userData) {
-      const parsedUser = JSON.parse(userData);
-      setUser(parsedUser);
-      
-      // Gerar link de indicação baseado no código
-      const baseUrl = window.location.origin;
-      setLinkIndicacao(`${baseUrl}/cadastro?ref=${parsedUser.codigoIndicacao}`);
-    }
+    loadUserData();
+  }, []);
 
-    // Calcular saldo e indicações
-    const total = comissoes.reduce((acc, c) => acc + c.valor, 0);
-    setSaldoDisponivel(total);
-    setTotalIndicacoes(comissoes.length);
-  }, [comissoes]);
+  const loadUserData = async () => {
+    try {
+      // Verificar autenticação
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError || !session) {
+        console.error('Erro de sessão:', sessionError);
+        router.push('/auth');
+        return;
+      }
+
+      // Buscar dados do usuário usando maybeSingle() para evitar erro quando não há dados
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('auth_id', session.user.id)
+        .maybeSingle();
+
+      if (userError) {
+        console.error('Erro ao buscar usuário:', userError);
+        // Se houver erro na query, redirecionar para cadastro
+        router.push('/cadastro');
+        return;
+      }
+
+      // Se não encontrou usuário, redirecionar para cadastro
+      if (!userData) {
+        console.log('Usuário não encontrado no banco, redirecionando para cadastro');
+        router.push('/cadastro');
+        return;
+      }
+
+      setUser(userData);
+
+      // Gerar link de indicação
+      const baseUrl = window.location.origin;
+      setLinkIndicacao(`${baseUrl}/cadastro?ref=${userData.codigo_indicacao}`);
+
+      // Buscar comissões
+      const { data: comissoesData, error: comissoesError } = await supabase
+        .from('comissoes')
+        .select('*')
+        .eq('usuario_id', userData.id)
+        .order('data', { ascending: false });
+
+      if (comissoesError) {
+        console.error('Erro ao buscar comissões:', comissoesError);
+        // Não bloqueia o dashboard se não conseguir buscar comissões
+        setComissoes([]);
+      } else if (comissoesData) {
+        setComissoes(comissoesData);
+        
+        // Calcular totais
+        const total = comissoesData.reduce((acc, c) => acc + Number(c.valor), 0);
+        setSaldoDisponivel(total);
+        setTotalIndicacoes(comissoesData.length);
+      }
+    } catch (error) {
+      console.error('Erro ao carregar dados:', error);
+      // Em caso de erro inesperado, redirecionar para auth
+      router.push('/auth');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const copyToClipboard = () => {
     if (linkIndicacao) {
@@ -73,14 +98,50 @@ export default function Dashboard() {
     }
   };
 
-  const handleSaque = (e: React.FormEvent) => {
+  const handleSaque = async (e: React.FormEvent) => {
     e.preventDefault();
-    alert(`Solicitação de saque de R$ ${valorSaque} enviada com sucesso! Processaremos em até 48h.`);
-    setShowSaqueModal(false);
-    setValorSaque('');
-    setMetodoPagamento('');
-    setDadosPagamento('');
+    
+    if (!user) return;
+
+    try {
+      const { error } = await supabase.from('saques').insert([
+        {
+          usuario_id: user.id,
+          valor: parseFloat(valorSaque),
+          metodo_pagamento: metodoPagamento,
+          dados_pagamento: dadosPagamento,
+          status: 'pendente',
+        },
+      ]);
+
+      if (error) throw error;
+
+      alert(`Solicitação de saque de R$ ${valorSaque} enviada com sucesso! Processaremos em até 48h.`);
+      setShowSaqueModal(false);
+      setValorSaque('');
+      setMetodoPagamento('');
+      setDadosPagamento('');
+    } catch (error: any) {
+      console.error('Erro ao solicitar saque:', error);
+      alert(`Erro ao solicitar saque: ${error.message}`);
+    }
   };
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    router.push('/');
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-green-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Carregando...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!user) {
     return (
@@ -108,9 +169,18 @@ export default function Dashboard() {
             <h1 className="text-2xl font-bold bg-gradient-to-r from-emerald-600 to-green-600 bg-clip-text text-transparent">
               Milionário Rapidoooo
             </h1>
-            <div className="text-right">
-              <p className="text-sm text-gray-600">Olá,</p>
-              <p className="font-semibold text-gray-900">{user.nome}</p>
+            <div className="flex items-center gap-4">
+              <div className="text-right">
+                <p className="text-sm text-gray-600">Olá,</p>
+                <p className="font-semibold text-gray-900">{user.nome}</p>
+              </div>
+              <button
+                onClick={handleLogout}
+                className="p-2 text-gray-600 hover:text-red-600 transition-colors"
+                title="Sair"
+              >
+                <LogOut className="w-5 h-5" />
+              </button>
             </div>
           </div>
         </div>
@@ -224,8 +294,8 @@ export default function Dashboard() {
                     <Users className="w-6 h-6 text-emerald-600" />
                   </div>
                   <div>
-                    <p className="font-semibold text-gray-900">{comissao.indicadoNome}</p>
-                    <p className="text-sm text-gray-600">{comissao.indicadoEmail}</p>
+                    <p className="font-semibold text-gray-900">{comissao.indicado_nome}</p>
+                    <p className="text-sm text-gray-600">{comissao.indicado_email}</p>
                     <p className="text-xs text-gray-500 mt-1">
                       {new Date(comissao.data).toLocaleDateString('pt-BR')}
                     </p>
@@ -234,7 +304,7 @@ export default function Dashboard() {
                 
                 <div className="text-right">
                   <p className="text-xl font-bold text-emerald-600">
-                    + R$ {comissao.valor.toFixed(2)}
+                    + R$ {Number(comissao.valor).toFixed(2)}
                   </p>
                   <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium ${
                     comissao.status === 'pago' 
