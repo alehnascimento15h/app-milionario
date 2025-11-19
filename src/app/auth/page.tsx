@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { Auth } from '@supabase/auth-ui-react';
@@ -13,27 +13,64 @@ export default function AuthPage() {
   const searchParams = useSearchParams();
   const [loading, setLoading] = useState(true);
   const refCode = searchParams.get('ref');
+  const isMounted = useRef(true);
+  const isNavigating = useRef(false);
+  const hasCheckedSession = useRef(false);
 
   useEffect(() => {
-    // Verificar se usuário já está logado
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
-        router.push('/dashboard');
-      } else {
-        setLoading(false);
+    isMounted.current = true;
+
+    // Verificar se usuário já está logado (apenas uma vez)
+    const checkSession = async () => {
+      if (hasCheckedSession.current) return;
+      hasCheckedSession.current = true;
+
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error('Erro ao verificar sessão:', error);
+          if (isMounted.current) {
+            setLoading(false);
+          }
+          return;
+        }
+
+        if (session && isMounted.current && !isNavigating.current) {
+          isNavigating.current = true;
+          router.replace('/dashboard');
+        } else if (isMounted.current) {
+          setLoading(false);
+        }
+      } catch (err) {
+        console.error('Erro ao verificar sessão:', err);
+        if (isMounted.current) {
+          setLoading(false);
+        }
       }
-    });
+    };
+
+    checkSession();
 
     // Listener para mudanças de autenticação
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session) {
-        router.push('/dashboard');
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_IN' && session && isMounted.current && !isNavigating.current) {
+        isNavigating.current = true;
+        // Pequeno delay para garantir que a sessão está completamente estabelecida
+        setTimeout(() => {
+          if (isMounted.current) {
+            router.replace('/dashboard');
+          }
+        }, 100);
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      isMounted.current = false;
+      subscription.unsubscribe();
+    };
   }, [router]);
 
   if (loading) {
@@ -115,7 +152,7 @@ export default function AuthPage() {
               },
             }}
             providers={[]}
-            redirectTo={`${window.location.origin}/cadastro${refCode ? `?ref=${refCode}` : ''}`}
+            redirectTo={typeof window !== 'undefined' ? `${window.location.origin}/cadastro${refCode ? `?ref=${refCode}` : ''}` : undefined}
           />
 
           {/* Benefícios */}
